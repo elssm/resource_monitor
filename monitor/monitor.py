@@ -1,39 +1,42 @@
-import os
+import logging
+from multiprocessing import Process
 
 import psutil
 
 
-class Monitor:
-    def __init__(self, pids) -> None:
-        self.pids = pids
-        self.psutil_process = self.parse_monitor_process()
+class Monitor(Process):
+    def __init__(self, pid, interval, threshold):
+        """
+        监控一个进程的监控器
+        :param pid: 监控进程的 pid
+        :param interval: 每次监控的时间间隔
+        :param threshold:
+        """
+        super().__init__()
+        self.monitor_pid = pid
+        self.monitor_processes = psutil.Process(pid)
+        self.detect_information = None
+        self.interval = interval
+        self.threshold = threshold
 
-    def parse_monitor_process(self):
-        if type(self.pids) is int:
-            psutil_process = [psutil.Process(self.pids)]
-        else:
-            psutil_process = []
-            for pid in self.pids:
-                psutil_process.append(psutil.Process(pid))
-        return psutil_process
+    def run(self):
+        point_information = {"mem": [], "cpu": []}
+        logging.debug(f"{self.monitor_processes}")
+        try:
+            while self.monitor_processes.is_running():
+                logging.debug(point_information)
+                mem_percent = self.monitor_processes.memory_percent()
+                cpu_percent = self.monitor_processes.cpu_percent(interval=self.interval)
+                if mem_percent == 0 and cpu_percent == 0:
+                    continue
+                point_information["mem"].append(mem_percent)
+                point_information["cpu"].append(cpu_percent)
+        except:
+            logging.info("monitor success")
+        finally:
+            logging.debug(f"detect information is {point_information}")
+        self.detect_information = point_information
 
-
-class WindowsMonitor(Monitor):
-
-    def __init__(self, pids) -> None:
-        super().__init__(pids)
-
-    def get_cpu_information(self):
-        pass
-
-
-class LinuxMonitor(Monitor):
-
-    def __init__(self, pids) -> None:
-        super().__init__(pids)
-
-
-if __name__ == '__main__':
-    pid = os.getpid()
-    m = WindowsMonitor(pid)
-    print(m.psutil_process)
+    def get_monitor_information(self):
+        logging.debug(f"get information is {self.detect_information}")
+        return self.detect_information
